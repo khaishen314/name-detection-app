@@ -8,7 +8,7 @@
     @Returns:
         FLOAT: Processed distance score in [0,1]
 */
-CREATE OR REPLACE FUNCTION processed_distance_score(
+CREATE OR REPLACE FUNCTION name_detection.processed_distance_score(
     lev_dist INT,
     len INT,
     k FLOAT DEFAULT 3.5, -- scaling factor
@@ -37,7 +37,7 @@ $$;
     @Returns:
         TABLE: watchlist_id, matched_watchlist_full_name, final_score
 */
-CREATE OR REPLACE FUNCTION match_watchlist(
+CREATE OR REPLACE FUNCTION name_detection.match_watchlist(
     input_full_name TEXT,
     limit_results INT DEFAULT 10,
     w_s FLOAT DEFAULT 0.4, -- similarity weight
@@ -79,6 +79,7 @@ candidates AS (
         (w.dmeta_primary = i.input_dmeta_primary)::int +
         (w.dmeta_alt = i.input_dmeta_alt)::int AS phonetic_hits
     FROM name_detection.watchlist w
+    -- FROM name_detection.watchlist_test w
     CROSS JOIN input_full i
     WHERE
         w.norm_name % i.input_norm_name

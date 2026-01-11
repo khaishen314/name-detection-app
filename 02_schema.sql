@@ -3,7 +3,7 @@ SET search_path TO name_detection, public;
 COMMENT ON SCHEMA name_detection IS
 'Schema for fuzzy name detection and watchlist matching';
 
-CREATE OR REPLACE FUNCTION normalise_and_sort_name(input TEXT)
+CREATE OR REPLACE FUNCTION name_detection.normalise_and_sort_name(input TEXT)
 RETURNS TEXT
 LANGUAGE SQL IMMUTABLE AS $$
 SELECT string_agg(token, ' ' ORDER BY token)
