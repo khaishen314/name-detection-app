@@ -1,7 +1,9 @@
-CREATE OR REPLACE VIEW name_detection.v_watchlist_match_explain AS
+CREATE VIEW name_detection.v_watchlist AS
 SELECT
     w.id,
+    w.full_name,
     w.norm_name,
+    w.name_len,
     w.soundex_code,
     w.metaphone_code,
     w.dmeta_primary,

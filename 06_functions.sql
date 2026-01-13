@@ -29,8 +29,8 @@ $$;
     @Params:
         input_full_name: The input full name to match against the watchlist
         limit_results: Maximum number of results to return
+        sim_top_n: Number of top candidates to consider from similarity() filtering
         w_s: Weight for similarity score
-        w_d: Weight for distance score
         confidence_threshold: Minimum base score to consider phonetic boost
         phonetic_boost: Boost factor per phonetic match
         length_coverage_factor: Factor for length coverage adjustment
@@ -39,12 +39,12 @@ $$;
 */
 CREATE OR REPLACE FUNCTION name_detection.match_watchlist(
     input_full_name TEXT,
-    limit_results INT DEFAULT 10,
-    w_s FLOAT DEFAULT 0.4, -- similarity weight
-    w_d FLOAT DEFAULT 0.6, -- distance weight
-    confidence_threshold FLOAT DEFAULT 0.5, -- minimum score for phonetic boost
-    phonetic_boost FLOAT DEFAULT 0.2, -- phonetic boost factor
-    length_coverage_factor FLOAT DEFAULT 0.8 -- length coverage factor
+    limit_results INT DEFAULT 500,
+    sim_top_n INT DEFAULT 200000, -- top N candidates from similarity
+    w_s FLOAT DEFAULT 0.4, -- similarity weight [0, 1]
+    confidence_threshold FLOAT DEFAULT 0.45, -- minimum score for phonetic boost [0.4, 0.5]
+    phonetic_boost FLOAT DEFAULT 0.2, -- phonetic boost factor [0.1, 0.25]
+    length_coverage_factor FLOAT DEFAULT 0.95 -- length coverage factor
 )
 RETURNS TABLE (
     watchlist_id BIGINT,
@@ -52,55 +52,60 @@ RETURNS TABLE (
     final_score FLOAT
 )
 LANGUAGE SQL STABLE AS $$
+-- normalise input name
 WITH input AS (
     SELECT
+        input_full_name,
         name_detection.normalise_and_sort_name(input_full_name) AS input_norm_name
 ),
+-- compute input helpers
 input_full AS (
     SELECT
-        *,
+        input_norm_name,
         char_length(input_norm_name) AS input_name_len,
-        soundex(input_norm_name) AS input_soundex_code,
-        metaphone(input_norm_name, 8) AS input_metaphone_code,
-        dmetaphone(input_norm_name) AS input_dmeta_primary,
-        dmetaphone_alt(input_norm_name) AS input_dmeta_alt
+        soundex(input_full_name) AS input_soundex_code,
+        metaphone(input_full_name, 8) AS input_metaphone_code,
+        dmetaphone(input_full_name) AS input_dmeta_primary,
+        dmetaphone_alt(input_full_name) AS input_dmeta_alt
     FROM input
 ),
+-- similarity filter
 candidates AS (
+    SELECT 
+        w.id,
+        w.full_name,
+        w.norm_name,
+        w.name_len,
+        w.soundex_code,
+        w.metaphone_code,
+        w.dmeta_primary,
+        w.dmeta_alt
+    FROM name_detection.watchlist w
+    JOIN input_full i ON TRUE
+    WHERE w.norm_name % i.input_norm_name
+    ORDER BY similarity(w.norm_name, i.input_norm_name) DESC
+    LIMIT sim_top_n
+),
+-- scoring
+scored AS (
     SELECT
         w.id,
         w.full_name,
         w.name_len,
         i.input_name_len,
         similarity(w.norm_name, i.input_norm_name) AS sim_score,
-        levenshtein(w.norm_name, i.input_norm_name, 1, 1, 1) AS lev_dist,
-        (w.soundex_code = i.input_soundex_code)::int +
-        (w.metaphone_code = i.input_metaphone_code)::int +
-        (w.dmeta_primary = i.input_dmeta_primary)::int +
-        (w.dmeta_alt = i.input_dmeta_alt)::int AS phonetic_hits
-    FROM name_detection.watchlist w
-    -- FROM name_detection.watchlist_test w
-    CROSS JOIN input_full i
-    WHERE
-        w.norm_name % i.input_norm_name
-        OR w.dmeta_primary = i.input_dmeta_primary
-        OR w.dmeta_alt = i.input_dmeta_alt
-    ORDER BY similarity(w.norm_name, i.input_norm_name) DESC
-    LIMIT 100
-),
-scored AS (
-    SELECT
-        id,
-        full_name,
-        name_len,
-        input_name_len,
-        sim_score,
-        processed_distance_score(
-            lev_dist,
-            greatest(name_len, input_name_len)
+        name_detection.processed_distance_score(
+            levenshtein(w.norm_name, i.input_norm_name),
+            greatest(w.name_len, i.input_name_len)
         ) AS lev_score,
-        phonetic_hits
-    FROM candidates
+        (
+            (w.soundex_code = i.input_soundex_code)::int +
+            (w.metaphone_code = i.input_metaphone_code)::int +
+            (w.dmeta_primary = i.input_dmeta_primary)::int +
+            (w.dmeta_alt = i.input_dmeta_alt)::int
+        ) AS phonetic_hits
+    FROM candidates w
+    CROSS JOIN input_full i
 ),
 combined AS (
     SELECT
@@ -108,7 +113,7 @@ combined AS (
         full_name,
         name_len,
         input_name_len,
-        (w_s * sim_score + w_d * lev_score) AS base_score,
+        (w_s * sim_score + (1 - w_s) * lev_score) AS base_score,
         phonetic_hits
     FROM scored
 ),
@@ -119,25 +124,28 @@ boosted AS (
         name_len,
         input_name_len,
         CASE
-            WHEN (phonetic_hits > 0 AND base_score >= confidence_threshold) THEN
-                base_score + phonetic_boost * phonetic_hits
-            ELSE
-                base_score
+            WHEN phonetic_hits > 0 AND base_score >= confidence_threshold
+            THEN base_score + phonetic_boost * (1 - base_score)
+            ELSE base_score
         END AS boosted_score
     FROM combined
-),
-final AS (
-    SELECT
-        id,
-        full_name,
-        boosted_score * pow((least(name_len, input_name_len)::float) / greatest(name_len, input_name_len), length_coverage_factor) AS final_score
-    FROM boosted
 )
 SELECT
     id,
     full_name,
-    round(least(1.0, greatest(0.0, final_score))::numeric, 4)
-FROM final
+    round(
+        least(
+            1.0,
+            boosted_score *
+            pow(
+                least(name_len, input_name_len)::float /
+                greatest(name_len, input_name_len),
+                length_coverage_factor
+            )
+        )::numeric,
+        4
+    ) AS final_score
+FROM boosted
 ORDER BY final_score DESC
 LIMIT limit_results;
 $$;

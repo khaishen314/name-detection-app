@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS name_detection.watchlist (
     -- Precomputed helpers
     name_len INT GENERATED ALWAYS AS (char_length(name_detection.normalise_and_sort_name(full_name))) STORED NOT NULL,
 
-    soundex_code TEXT GENERATED ALWAYS AS (soundex(name_detection.normalise_and_sort_name(full_name))) STORED NOT NULL,
-    metaphone_code TEXT GENERATED ALWAYS AS (metaphone(name_detection.normalise_and_sort_name(full_name), 8)) STORED NOT NULL,
-    dmeta_primary TEXT GENERATED ALWAYS AS (dmetaphone(name_detection.normalise_and_sort_name(full_name))) STORED NOT NULL,
-    dmeta_alt TEXT GENERATED ALWAYS AS (dmetaphone_alt(name_detection.normalise_and_sort_name(full_name))) STORED NOT NULL
+    soundex_code TEXT GENERATED ALWAYS AS (soundex(full_name)) STORED NOT NULL,
+    metaphone_code TEXT GENERATED ALWAYS AS (metaphone(full_name, 8)) STORED NOT NULL,
+    dmeta_primary TEXT GENERATED ALWAYS AS (dmetaphone(full_name)) STORED NOT NULL,
+    dmeta_alt TEXT GENERATED ALWAYS AS (dmetaphone_alt(full_name)) STORED NOT NULL
 );
