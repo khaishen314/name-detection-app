@@ -79,33 +79,58 @@ candidates AS (
         w.soundex_code,
         w.metaphone_code,
         w.dmeta_primary,
-        w.dmeta_alt
+        w.dmeta_alt,
+        i.input_norm_name,
+        i.input_name_len,
+        i.input_soundex_code,
+        i.input_metaphone_code,
+        i.input_dmeta_primary,
+        i.input_dmeta_alt
     FROM name_detection.watchlist w
-    JOIN input_full i ON TRUE
+    CROSS JOIN input_full i
     WHERE w.norm_name % i.input_norm_name
-    ORDER BY similarity(w.norm_name, i.input_norm_name) DESC
+),
+-- sim scoring & top n
+top_sim_candidates AS (
+    SELECT
+        id,
+        full_name,
+        norm_name,
+        name_len,
+        soundex_code,
+        metaphone_code,
+        dmeta_primary,
+        dmeta_alt,
+        input_norm_name,
+        input_name_len,
+        input_soundex_code,
+        input_metaphone_code,
+        input_dmeta_primary,
+        input_dmeta_alt,
+        similarity(norm_name, input_norm_name) AS sim_score
+    FROM candidates
+    ORDER BY sim_score DESC
     LIMIT sim_top_n
 ),
 -- scoring
 scored AS (
     SELECT
-        w.id,
-        w.full_name,
-        w.name_len,
-        i.input_name_len,
-        similarity(w.norm_name, i.input_norm_name) AS sim_score,
+        id,
+        full_name,
+        name_len,
+        input_name_len,
+        sim_score,
         name_detection.processed_distance_score(
-            levenshtein(w.norm_name, i.input_norm_name),
-            greatest(w.name_len, i.input_name_len)
+            levenshtein(norm_name, input_norm_name),
+            greatest(name_len, input_name_len)
         ) AS lev_score,
         (
-            (w.soundex_code = i.input_soundex_code)::int +
-            (w.metaphone_code = i.input_metaphone_code)::int +
-            (w.dmeta_primary = i.input_dmeta_primary)::int +
-            (w.dmeta_alt = i.input_dmeta_alt)::int
+            (soundex_code = input_soundex_code)::int +
+            (metaphone_code = input_metaphone_code)::int +
+            (dmeta_primary = input_dmeta_primary)::int +
+            (dmeta_alt = input_dmeta_alt)::int
         ) AS phonetic_hits
-    FROM candidates w
-    CROSS JOIN input_full i
+    FROM top_sim_candidates
 ),
 combined AS (
     SELECT
