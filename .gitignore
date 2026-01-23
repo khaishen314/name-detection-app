@@ -1,1 +1,3 @@
 *_test_queries.sql
+.env
+__pycache__/

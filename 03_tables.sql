@@ -2,8 +2,8 @@ CREATE TABLE IF NOT EXISTS name_detection.watchlist (
     id BIGSERIAL PRIMARY KEY,
 
     -- Timestamps
-    gmt_create TIMESTAMPTZ NOT NULL DEFAULT now(),
-    gmt_modify TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     -- Original full name
     full_name TEXT NOT NULL,

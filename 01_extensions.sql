@@ -1,6 +1,5 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
 
--- Set similarity threshold
-SET pg_trgm.similarity_threshold = 0.3;
+-- Disable sequential scans to enforce index usage
 SET enable_seqscan = OFF;

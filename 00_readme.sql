@@ -40,5 +40,6 @@ Input → Candidate narrowing (indexes)
 Installation:
 -------------
 1. Run files in numeric order.
-2. CREATE ROLE name_detection_app.
+2. CREATE DATABASE name_detection_app_db.
+3. CREATE ROLE name_detection_app.
 */
