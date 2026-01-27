@@ -14,13 +14,15 @@ def fetch_watchlist() -> pd.DataFrame:
 """
     Calls the score_candidates function in psql to get top N candidates
 """
-def fetch_score_candidates(input_full_name: str, sim_top_n: int = 20) -> pd.DataFrame:
+def fetch_score_candidates(input_full_name: str, sim_top_n: int, k: float, p: float) -> pd.DataFrame:
     sql = """
         SELECT *
         FROM name_detection.score_candidates(
             input_full_name := %s,
-            sim_top_n := %s
+            sim_top_n := %s,
+            k := %s,
+            p := %s
         );
     """
-    score_candidates_df = execute_query(sql, (input_full_name, sim_top_n))
+    score_candidates_df = execute_query(sql, (input_full_name, sim_top_n, k, p))
     return score_candidates_df

@@ -11,8 +11,8 @@
 CREATE OR REPLACE FUNCTION name_detection.processed_distance_score(
     lev_dist INT,
     len INT,
-    k FLOAT DEFAULT 3.5, -- scaling factor
-    p FLOAT DEFAULT 1.5 -- damping factor
+    k FLOAT, -- scaling factor
+    p FLOAT -- damping factor
 )
 RETURNS FLOAT
 LANGUAGE SQL IMMUTABLE AS $$
@@ -34,7 +34,9 @@ $$;
 */
 CREATE OR REPLACE FUNCTION name_detection.score_candidates(
     input_full_name TEXT,
-    sim_top_n INT -- top N candidates from similarity
+    sim_top_n INT, -- top N candidates from similarity
+    k FLOAT, -- scaling factor
+    p FLOAT -- damping factor
 )
 RETURNS TABLE (
     id BIGINT,
@@ -81,7 +83,7 @@ candidates AS (
         i.input_dmeta_primary,
         i.input_dmeta_alt
     -- FROM name_detection.watchlist w
-    FROM name_detection.watchlist_test w
+    FROM name_detection.watchlist w
     CROSS JOIN input_full i
     WHERE w.norm_name % i.input_norm_name
 ),
@@ -115,7 +117,9 @@ SELECT
     sim_score,
     name_detection.processed_distance_score(
         levenshtein(norm_name, input_norm_name),
-        greatest(name_len, input_name_len)
+        greatest(name_len, input_name_len),
+        k,
+        p
     ) AS lev_score,
     (
         (soundex_code = input_soundex_code)::int +

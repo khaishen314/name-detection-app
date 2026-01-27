@@ -1,4 +1,3 @@
-/*
 Name Detection System – Custom Fuzzy Matching Engine
 ===================================================
 
@@ -12,8 +11,6 @@ Key Requirements:
 -----------------
 - < 20ms response time
 - ~200k watchlist records
-- PostgreSQL-only (no external runtime)
-- Tunable & explainable scoring
 
 Techniques Used:
 ----------------
@@ -36,10 +33,3 @@ Execution Flow:
 Input → Candidate narrowing (indexes)
       → Scoring (math on small set)
       → Top-N ranked results
-
-Installation:
--------------
-1. Run files in numeric order.
-2. CREATE DATABASE name_detection_app_db.
-3. CREATE ROLE name_detection_app.
-*/

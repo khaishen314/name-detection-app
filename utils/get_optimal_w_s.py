@@ -16,13 +16,6 @@ import pandas as pd
     t_mu: optimal t minimizing g
     w_s = 1 - t_mu
 """
-def get_scores(input_full_name: str, sim_top_n: int = 20) -> pd.DataFrame:
-    scores_df = fetch_score_candidates(input_full_name, sim_top_n)[['sim_score', 'lev_score']]
-    c_0, c_1 = dict(), dict()
-    for idx, row in scores_df.iterrows():
-        c_0[idx] = row['sim_score']
-        c_1[idx] = row['lev_score']
-    return c_0, c_1
 
 """
     Rank nodes
@@ -80,12 +73,6 @@ def tau_b(c_0: dict, c_1: dict) -> float:
 def get_ct(c_0: dict, c_1: dict, t: float) -> dict:
     return {i: c_0[i] * (1 - t) + c_1[i] * t for i in c_0}
 
-def find_t_star(c_0: dict, c_1: dict) -> list:
-    t_axis = np.linspace(0, 1, 10000)
-    ranks = [sort_to_rank(get_ct(c_0, c_1, t)) for t in t_axis]
-    max_len = max(len(ranks[0]), len(ranks[1])) # t = 0 might be a critical point
-    return [t_axis[i] for i in range(len(ranks)) if len(ranks[i]) < max_len] # only get critical points
-
 def g(t: float, c_0: dict, c_1: dict) -> float:
     c_t = get_ct(c_0, c_1, t)
     return (1 - tau_b(c_0, c_t))**2 + (1 - tau_b(c_1, c_t))**2 # objective function to minimise to find the best t_mu
@@ -98,7 +85,11 @@ def get_t_mu(c_0: dict, c_1: dict, tol=1e-6) -> float:
     mid_idx = min_idxs[len(min_idxs) // 2] # take midpoint index
     return t_axis[mid_idx]
 
-def get_optimal_w_s(input_full_name: str, sim_top_n: int = 20) -> float:
-    c_0, c_1 = get_scores(input_full_name, sim_top_n)
+def get_optimal_w_s(input_full_name: str, sim_top_n: int, k: float, p: float) -> float:
+    scores_df = fetch_score_candidates(input_full_name, sim_top_n, k, p)[['sim_score', 'lev_score']]
+    c_0, c_1 = dict(), dict()
+    for idx, row in scores_df.iterrows():
+        c_0[idx] = row['sim_score']
+        c_1[idx] = row['lev_score']
     t_mu = get_t_mu(c_0, c_1)
     return 1 - t_mu

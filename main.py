@@ -6,20 +6,22 @@ import duckdb
 def match_watchlist(
     input_full_name: str,
     sim_top_n: int = 20,
+    k: float = 3.5,
+    p: float = 1.5,
     limit_results: int = 20, 
     confidence_threshold: float = 0.45, 
     phonetic_boost: float = 0.2, 
     length_coverage_factor: float = 0.95
     ) -> pd.DataFrame:
     
-    df = fetch_score_candidates(input_full_name, sim_top_n)
+    df = fetch_score_candidates(input_full_name, sim_top_n, k, p)
     if df is None or df.empty:
         print(f"No candidates found for '{input_full_name}'")
         return
 
     duckdb.register("scored", df)
 
-    w_s = get_optimal_w_s(input_full_name, sim_top_n)
+    w_s = get_optimal_w_s(input_full_name, sim_top_n, k, p)
 
     sql = """
     WITH combined AS (
@@ -69,9 +71,3 @@ def match_watchlist(
 
     result_df = duckdb.query(sql, params=params).to_df()
     return result_df
-
-if __name__ == "__main__":
-    input_name = "mohamad ali bin hassan"
-    result_df = match_watchlist(input_name)
-    print(result_df)
-    
